@@ -31,11 +31,6 @@ def build_ontology() -> dict:
             "sh": "http://www.w3.org/ns/shacl#",
             "xsd": "http://www.w3.org/2001/XMLSchema#",
             "dcterms": "http://purl.org/dc/terms/",
-            # order is significant for CLI arguments, and sources run in the
-            # order listed, so both round-trip through RDF as rdf:List rather
-            # than an unordered set of triples.
-            "sources": {"@id": "sources", "@container": "@list"},
-            "options": {"@id": "options", "@container": "@list"},
         },
         "@graph": [
             {

@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from pyld import jsonld
 
 import main
 
@@ -18,8 +19,15 @@ def test_build_ontology_declares_the_extract_task():
     ids = [node["@id"] for node in ontology["@graph"]]
 
     assert main.TASK_CLASS in ids
-    assert ontology["@context"]["sources"]["@container"] == "@list"
-    assert ontology["@context"]["options"]["@container"] == "@list"
+
+
+def test_build_ontology_is_valid_jsonld():
+    """Regression test: a bad @context entry (e.g. a bare term with no
+    @vocab set) makes SAL fail to parse the *entire* ontology, which then
+    fails validation for every term, not just the broken one. jsonld.expand
+    raises on exactly that class of error.
+    """
+    jsonld.expand(main.build_ontology())
 
 
 def test_slugify_replaces_non_alphanumerics_and_lowercases():

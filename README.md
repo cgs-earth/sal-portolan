@@ -95,11 +95,12 @@ its COG extraction path instead of GeoParquet. `--bbox` keeps the example to
 a small area around the Grand Canyon rather than the whole CONUS-wide
 elevation dataset.
 
-`portolan:sources` and `portolan:options` are declared as `@container: @list` in this
-module's ontology (see `salmodule ontology`), which is why they're written
-as RDF collections (`( ... )`) rather than repeated predicates — extraction
-order and CLI argument order both matter, and Turtle's list syntax is what
-preserves that order through RDF. SAL frames this graph back into the
+`portolan:sources` and `portolan:options` are written as RDF collections
+(`( ... )`) rather than repeated predicates because both are ordered —
+extraction order and CLI argument order matter — and Turtle's list syntax
+(`rdf:List`) is how RDF represents an ordered sequence, unlike writing the
+same predicate more than once, which RDF treats as an unordered set of
+values. SAL frames this graph back into the
 `tests/SALMODULE_TASK_INSTANCE.json` shape shown above before invoking
 `salmodule run`.
 

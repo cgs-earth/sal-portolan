@@ -230,6 +230,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cachetools"
+version = "7.1.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/39/9a4689914dd907915cee74733b95888fc1d8a21aad47a24a0a2deec73ac4/cachetools-7.1.8.tar.gz", hash = "sha256:1221d547a0b24b7f26fa891d40d488b5258beab9aebd8ed68c729be3af849c43", size = 40909, upload-time = "2026-08-31T19:02:53.985Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/3d/9487690d0e937854db587205c66bab3c3cf88d9f00ed380b74cb88cc94ee/cachetools-7.1.8-py3-none-any.whl", hash = "sha256:a81e3844acaa7355b6567f97bd67a94a14ec3a9bc2cbbdae45b9592cc036775b", size = 16842, upload-time = "2026-08-31T19:02:52.554Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -778,6 +787,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/00/6a/58597f16e1265fe9205de3069e338a339e3eef0b1daf049ee08269458091/fonttools-4.65.0-cp315-cp315t-win32.whl", hash = "sha256:c779d838815b91889c95ed64c9be5950ad5a683279f91aeb23384cb757ddc6a3", size = 2464925, upload-time = "2026-09-10T15:35:47.224Z" },
     { url = "https://files.pythonhosted.org/packages/4b/95/122fc172006db747f4968e08c710f52a94f55eb007173b859b3f80b5b810/fonttools-4.65.0-cp315-cp315t-win_amd64.whl", hash = "sha256:d9484b7ee1b49b6b8a0231c849f3983723dec29e3a7366d9b1b02f4036f71944", size = 2513945, upload-time = "2026-09-10T15:35:49.895Z" },
     { url = "https://files.pythonhosted.org/packages/e6/35/f894ceb867118c0261d0f69a9bd516b045a3754238f76c88a49513ac7a83/fonttools-4.65.0-py3-none-any.whl", hash = "sha256:3060b8c1fc2329fa20265b7c138614143ea7c1624e26c5c180c76aeb74deae6f", size = 1196441, upload-time = "2026-09-10T15:35:52.347Z" },
+]
+
+[[package]]
+name = "frozendict"
+version = "2.4.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/b2/2a3d1374b7780999d3184e171e25439a8358c47b481f68be883c14086b4c/frozendict-2.4.7.tar.gz", hash = "sha256:e478fb2a1391a56c8a6e10cc97c4a9002b410ecd1ac28c18d780661762e271bd", size = 317082, upload-time = "2025-11-11T22:40:14.251Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/74/f94141b38a51a553efef7f510fc213894161ae49b88bffd037f8d2a7cb2f/frozendict-2.4.7-py3-none-any.whl", hash = "sha256:972af65924ea25cf5b4d9326d549e69a9a4918d8a76a9d3a7cd174d98b237550", size = 16264, upload-time = "2025-11-11T22:40:12.836Z" },
 ]
 
 [[package]]
@@ -2298,6 +2316,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pyld"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "frozendict" },
+    { name = "lxml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fe/fa/6a6484248a3ad6bbd9f07ad0e1efa15385747dc2dc61d95f94ebe31924c1/pyld-3.3.0.tar.gz", hash = "sha256:cf5353786582056e76cb1698db32d8fc796250703311d0e5e33dd3e86f23e031", size = 125628, upload-time = "2026-09-02T06:55:18.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/96/d4671916dc981b486cd8e919bf9b3be0463faab3d612e5815efaba63c62b/pyld-3.3.0-py3-none-any.whl", hash = "sha256:58aa63542a5989431426bdfef932db0d1b974e2928e179f74d5a903804de9692", size = 109432, upload-time = "2026-09-02T06:55:16.123Z" },
+]
+
+[[package]]
 name = "pyogrio"
 version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3066,6 +3098,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
+    { name = "pyld" },
     { name = "pyright" },
     { name = "pytest" },
 ]
@@ -3076,6 +3109,7 @@ requires-dist = [{ name = "portolan-cli" }]
 [package.metadata.requires-dev]
 dev = [
     { name = "pre-commit", specifier = ">=4.0" },
+    { name = "pyld", specifier = ">=2.0" },
     { name = "pyright", specifier = ">=1.1" },
     { name = "pytest", specifier = ">=8.0" },
 ]
