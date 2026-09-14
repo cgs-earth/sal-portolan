@@ -21,13 +21,16 @@ configured with a `sources` array. Each entry describes one
 | `options`  | no       | Array of raw extra CLI args passed through verbatim, e.g. `["--layers", "Census*"]`. See `portolan extract <provider> --help`.   |
 
 The output directory itself isn't configurable — each source extracts into
-its own directory inside the container, and the module reports that whole
-directory as one `file:///.../` node (trailing slash) once the extraction
-finishes. SAL copies a trailing-slash path verbatim, preserving the relative
-hrefs between a STAC catalog, its collections, items, and assets, rather
-than content-addressing each file individually and scattering them across a
-flat blob store. `--auto` is always passed so the extraction never blocks on
-an interactive confirmation prompt.
+`/portolan/<index>-<provider>-<name>/` inside the container (a fixed path,
+not a randomly-named temp directory, since SAL mirrors the container path
+under `.sal/data/blobs/`, e.g. `.sal/data/blobs/portolan/00-arcgis-demo/`),
+and the module reports that whole directory as one `file:///.../` node
+(trailing slash) once the extraction finishes. SAL copies a trailing-slash
+path verbatim, preserving the relative hrefs between a STAC catalog, its
+collections, items, and assets, rather than content-addressing each file
+individually and scattering them across a flat blob store. `--auto` is
+always passed so the extraction never blocks on an interactive confirmation
+prompt.
 
 Unless a source's `options` includes `--raw` (which skips STAC catalog
 creation), the directory node also carries
