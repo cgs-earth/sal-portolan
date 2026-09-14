@@ -5,7 +5,6 @@ shells out to a real `portolan` binary or hits a network service.
 """
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -167,12 +166,13 @@ def test_run_source_leaves_the_output_dir_in_place_after_returning(
     assert (dir_path / "catalog.json").exists()
 
 
-def test_run_cmd_does_not_delete_its_temp_dir_when_it_creates_its_own(monkeypatch, capsys):
-    created = {}
+def test_run_cmd_defaults_to_a_fixed_output_root_and_leaves_it_in_place(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(main, "DEFAULT_OUTPUT_ROOT", tmp_path)
 
     def fake_run(command, capture_output, text):
         output_dir = Path(command[4])
-        created["path"] = output_dir.parent
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "catalog.json").write_text("{}")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
@@ -188,12 +188,13 @@ def test_run_cmd_does_not_delete_its_temp_dir_when_it_creates_its_own(monkeypatc
         ),
     )
 
-    try:
-        exit_code = main.run_cmd()
-        assert exit_code == 0
-        assert created["path"].is_dir()
-    finally:
-        shutil.rmtree(created["path"], ignore_errors=True)
+    exit_code = main.run_cmd()
+
+    assert exit_code == 0
+    node = json.loads(capsys.readouterr().out)
+    output_dir = Path(node["@id"].removeprefix("file://").rstrip("/"))
+    assert output_dir.parent == tmp_path
+    assert (output_dir / "catalog.json").exists()
 
 
 def test_run_source_omits_conforms_to_when_raw_is_passed(tmp_path, monkeypatch, capsys):

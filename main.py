@@ -11,7 +11,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import NoReturn
 
@@ -21,6 +20,12 @@ TASK_CLASS = "Extract"
 PROVIDERS = ("arcgis", "wfs", "carto")
 ONTOLOGY_COMMANDS = ("ontology", "vocab", "vocabulary")
 STAC_SPEC = "https://stacspec.org/"
+# Fixed rather than a random tempdir: SAL mirrors this container path under
+# .sal/data/blobs/, so a stable path here (not /tmp/portolan-extract-<random>)
+# is what keeps the blob path predictable (.sal/data/blobs/portolan/...).
+# Each task instance runs in its own fresh container, so there is no
+# cross-run collision risk in reusing a fixed path.
+DEFAULT_OUTPUT_ROOT = Path("/portolan")
 
 
 def build_ontology() -> dict:
@@ -245,14 +250,14 @@ def run_cmd(output_root: Path | None = None) -> int:
         fail("InvalidTaskInstance", "'sources' must be a non-empty array.")
 
     if output_root is None:
-        # Deliberately not a TemporaryDirectory context manager: SAL copies
-        # each source's output directory out of the container after reading
-        # the file:// node naming it, which can happen after this process
-        # has already exited. Cleaning up here raced that copy and left SAL
-        # with nothing to read (the directory was gone by the time `docker
-        # cp` ran). The container itself is discarded once SAL is done with
-        # it, so there is nothing left to clean up on our end.
-        output_root = Path(tempfile.mkdtemp(prefix="portolan-extract-"))
+        # Not cleaned up afterward: SAL copies each source's output directory
+        # out of the container after reading the file:// node naming it,
+        # which can happen after this process has already exited. Deleting
+        # it here raced that copy and left SAL with nothing to read (the
+        # directory was gone by the time `docker cp` ran). The container
+        # itself is discarded once SAL is done with it, so there is nothing
+        # left to clean up on our end.
+        output_root = DEFAULT_OUTPUT_ROOT
 
     ok = all([run_source(index, source, output_root) for index, source in enumerate(sources)])
 
