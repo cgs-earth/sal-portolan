@@ -4,14 +4,15 @@
     "sources": [
         {
             "provider": "arcgis",
-            "url": "https://services.arcgis.com/example/arcgis/rest/services/Census/FeatureServer",
-            "name": "census",
-            "options": ["--layers", "Census*", "--output-crs", "EPSG:4326", "--raw"]
+            "url": "https://services.arcgis.com/C34zQ7veRS0V1t04/ArcGIS/rest/services/Irrigation_District_2024/FeatureServer/0",
+            "name": "irrigation-districts",
+            "options": ["--output-crs", "EPSG:4326"]
         },
         {
-            "provider": "wfs",
-            "url": "https://example.com/geoserver/wfs",
-            "options": ["--dry-run"]
+            "provider": "arcgis",
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+            "name": "grand-canyon-elevation",
+            "options": ["--bbox", "-112.2,36.0,-112.0,36.2"]
         }
     ]
 }

@@ -13,11 +13,13 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import NoReturn
 
 SALMODULE_NS = "https://w3id.org/sal/cgs-earth/sal-module-spec/salmodule#"
 TASK_CLASS = "Extract"
 PROVIDERS = ("arcgis", "wfs", "carto")
 ONTOLOGY_COMMANDS = ("ontology", "vocab", "vocabulary")
+STAC_SPEC = "https://stacspec.org/"
 
 
 def build_ontology() -> dict:
@@ -28,7 +30,7 @@ def build_ontology() -> dict:
             "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
             "sh": "http://www.w3.org/ns/shacl#",
             "xsd": "http://www.w3.org/2001/XMLSchema#",
-            "dc": "http://purl.org/dc/terms/",
+            "dcterms": "http://purl.org/dc/terms/",
             # order is significant for CLI arguments, and sources run in the
             # order listed, so both round-trip through RDF as rdf:List rather
             # than an unordered set of triples.
@@ -39,8 +41,8 @@ def build_ontology() -> dict:
             {
                 "@id": ".",
                 "@type": "owl:Ontology",
-                "dc:title": "Portolan Extract SAL Module",
-                "dc:description": (
+                "dcterms:title": "Portolan Extract SAL Module",
+                "dcterms:description": (
                     "Wraps the `portolan extract` sub-command (ArcGIS, WFS, Carto) "
                     "as a SAL Module Task."
                 ),
@@ -52,9 +54,10 @@ def build_ontology() -> dict:
                 "rdfs:label": "Portolan Extract",
                 "rdfs:comment": (
                     "Runs `portolan extract` against one or more remote geospatial "
-                    "sources (ArcGIS, WFS, or Carto). Every file the extraction "
-                    "writes is emitted as a file:/// node for the SAL project to "
-                    "copy out of the container."
+                    "sources (ArcGIS, WFS, or Carto). Each source's output directory "
+                    "is emitted as a single trailing-slash file:/// node, so the SAL "
+                    "project copies it out of the container whole, preserving the "
+                    "catalog's internal structure."
                 ),
                 "rdfs:subClassOf": {"@id": "salmodule:Task"},
                 "salmodule:self": {
@@ -141,7 +144,7 @@ def emit_error(label: str, message: str) -> None:
     emit({"@type": "salmodule:Error", "rdfs:label": label, "rdfs:comment": message})
 
 
-def fail(label: str, message: str) -> None:
+def fail(label: str, message: str) -> NoReturn:
     emit_error(label, message)
     sys.exit(1)
 
@@ -172,10 +175,16 @@ def slugify(value: str) -> str:
 
 
 def run_source(index: int, source: dict, output_root: Path) -> bool:
-    """Run one `portolan extract <provider>` call and emit its output files.
+    """Run one `portolan extract <provider>` call and emit its output directory.
 
-    Files are only emitted after the subprocess exits, so every file named
-    on stdout is guaranteed fully written, per the SAL file:/// contract.
+    The whole output directory is emitted as a single trailing-slash file:///
+    node, so SAL copies it verbatim instead of content-addressing each file
+    individually. That preserves the relative hrefs between a STAC catalog,
+    its collections, items, and assets, which a flat, per-file digest copy
+    would break. Unless --raw was passed, the directory is also asserted to
+    conform to the STAC spec. The directory is only emitted once the
+    subprocess exits, so it is guaranteed fully written first, per the SAL
+    file:/// contract.
     """
     provider = source.get("provider")
     url = source.get("url")
@@ -214,9 +223,13 @@ def run_source(index: int, source: dict, output_root: Path) -> bool:
         )
         return False
 
-    for path in sorted(output_dir.rglob("*")):
-        if path.is_file():
-            emit({"@id": f"file://{path.resolve()}"})
+    if any(output_dir.iterdir()):
+        node: dict = {"@id": f"file://{output_dir.resolve()}/"}
+        if "--raw" not in options:
+            # portolan writes a full STAC catalog by default; --raw skips it
+            # in favor of bare extraction files.
+            node["dcterms:conformsTo"] = {"@id": STAC_SPEC}
+        emit(node)
 
     return True
 
@@ -255,7 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 

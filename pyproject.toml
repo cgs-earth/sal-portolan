@@ -7,3 +7,19 @@ requires-python = ">=3.12"
 dependencies = [
     "portolan-cli",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0",
+    "pyright>=1.1",
+    "pytest>=8.0",
+]
+
+[tool.pyright]
+include = ["main.py", "tests"]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
