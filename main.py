@@ -236,7 +236,7 @@ def run_source(index: int, source: dict, output_root: Path) -> bool:
     return True
 
 
-def run_cmd() -> int:
+def run_cmd(output_root: Path | None = None) -> int:
     """Execute the salmodule:Task subclass instance set in SALMODULE_TASK_INSTANCE."""
     instance = get_task_instance()
 
@@ -244,11 +244,17 @@ def run_cmd() -> int:
     if not isinstance(sources, list) or not sources:
         fail("InvalidTaskInstance", "'sources' must be a non-empty array.")
 
-    with tempfile.TemporaryDirectory(prefix="portolan-extract-") as tmp:
-        output_root = Path(tmp)
-        ok = all(
-            [run_source(index, source, output_root) for index, source in enumerate(sources)]
-        )
+    if output_root is None:
+        # Deliberately not a TemporaryDirectory context manager: SAL copies
+        # each source's output directory out of the container after reading
+        # the file:// node naming it, which can happen after this process
+        # has already exited. Cleaning up here raced that copy and left SAL
+        # with nothing to read (the directory was gone by the time `docker
+        # cp` ran). The container itself is discarded once SAL is done with
+        # it, so there is nothing left to clean up on our end.
+        output_root = Path(tempfile.mkdtemp(prefix="portolan-extract-"))
+
+    ok = all([run_source(index, source, output_root) for index, source in enumerate(sources)])
 
     return 0 if ok else 1
 

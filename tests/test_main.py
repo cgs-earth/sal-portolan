@@ -5,6 +5,7 @@ shells out to a real `portolan` binary or hits a network service.
 """
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -138,6 +139,63 @@ def test_run_source_emits_one_trailing_slash_node_for_the_whole_output_dir(
     assert node["dcterms:conformsTo"] == {"@id": main.STAC_SPEC}
 
 
+def test_run_source_leaves_the_output_dir_in_place_after_returning(
+    tmp_path, monkeypatch, capsys
+):
+    """Regression test: SAL copies the directory named on stdout out of the
+    container asynchronously, which can happen after this process has
+    already moved on. Deleting the directory ourselves races that copy and
+    fails it with 'file not found in container' — so nothing here may ever
+    remove what it wrote.
+    """
+
+    def fake_run(command, capture_output, text):
+        output_dir = Path(command[4])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "catalog.json").write_text("{}")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(main.subprocess, "run", fake_run)
+
+    main.run_source(
+        0, {"provider": "arcgis", "url": "https://example.com/FeatureServer"}, tmp_path
+    )
+
+    node = json.loads(capsys.readouterr().out)
+    dir_path = Path(node["@id"].removeprefix("file://"))
+    assert dir_path.is_dir()
+    assert (dir_path / "catalog.json").exists()
+
+
+def test_run_cmd_does_not_delete_its_temp_dir_when_it_creates_its_own(monkeypatch, capsys):
+    created = {}
+
+    def fake_run(command, capture_output, text):
+        output_dir = Path(command[4])
+        created["path"] = output_dir.parent
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "catalog.json").write_text("{}")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(main.subprocess, "run", fake_run)
+    monkeypatch.setenv(
+        "SALMODULE_TASK_INSTANCE",
+        json.dumps(
+            {
+                "@type": "Extract",
+                "sources": [{"provider": "arcgis", "url": "https://example.com/a"}],
+            }
+        ),
+    )
+
+    try:
+        exit_code = main.run_cmd()
+        assert exit_code == 0
+        assert created["path"].is_dir()
+    finally:
+        shutil.rmtree(created["path"], ignore_errors=True)
+
+
 def test_run_source_omits_conforms_to_when_raw_is_passed(tmp_path, monkeypatch, capsys):
     def fake_run(command, capture_output, text):
         output_dir = Path(command[4])
@@ -195,7 +253,7 @@ def test_run_source_reports_a_missing_portolan_binary(tmp_path, monkeypatch, cap
     assert error["rdfs:label"] == "PortolanNotFound"
 
 
-def test_run_cmd_attempts_every_source_even_after_a_failure(monkeypatch, capsys):
+def test_run_cmd_attempts_every_source_even_after_a_failure(tmp_path, monkeypatch, capsys):
     calls = []
 
     def fake_run(command, capture_output, text):
@@ -221,7 +279,7 @@ def test_run_cmd_attempts_every_source_even_after_a_failure(monkeypatch, capsys)
         ),
     )
 
-    exit_code = main.run_cmd()
+    exit_code = main.run_cmd(output_root=tmp_path)
 
     assert exit_code == 1
     assert len(calls) == 2
