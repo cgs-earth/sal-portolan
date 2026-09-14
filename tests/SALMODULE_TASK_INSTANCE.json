@@ -1,0 +1,17 @@
+{
+    "@id": "https://github.com/owner/myrepo/myinst",
+    "@type": "Extract",
+    "sources": [
+        {
+            "provider": "arcgis",
+            "url": "https://services.arcgis.com/example/arcgis/rest/services/Census/FeatureServer",
+            "name": "census",
+            "options": ["--layers", "Census*", "--output-crs", "EPSG:4326", "--raw"]
+        },
+        {
+            "provider": "wfs",
+            "url": "https://example.com/geoserver/wfs",
+            "options": ["--dry-run"]
+        }
+    ]
+}
