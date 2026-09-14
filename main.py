@@ -8,7 +8,6 @@ executes the salmodule:Task instance passed via SALMODULE_TASK_INSTANCE.
 import argparse
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -60,11 +59,13 @@ def build_ontology() -> dict:
                 "@type": "owl:Class",
                 "rdfs:label": "Portolan Extract",
                 "rdfs:comment": (
-                    "Runs `portolan extract` against one or more remote geospatial "
-                    "sources (ArcGIS, WFS, or Carto). Each source's output directory "
-                    "is emitted as a single trailing-slash file:/// node, so the SAL "
-                    "project copies it out of the container whole, preserving the "
-                    "catalog's internal structure."
+                    "Runs `portolan extract` once per remote geospatial source "
+                    "(ArcGIS, WFS, or Carto), all into the same output directory so "
+                    "portolan accumulates them as collections in one shared STAC "
+                    "catalog. That directory is emitted once, as a single "
+                    "trailing-slash file:/// node, so the SAL project copies it out "
+                    "of the container whole, preserving the catalog's internal "
+                    "structure."
                 ),
                 "rdfs:subClassOf": {"@id": "salmodule:Task"},
                 "salmodule:self": {
@@ -83,7 +84,7 @@ def build_ontology() -> dict:
                 "@type": "owl:ObjectProperty",
                 "rdfs:comment": (
                     "Ordered list of Source objects; one `portolan extract` run "
-                    "happens per entry."
+                    "happens per entry, all sharing one output directory."
                 ),
                 "rdfs:domain": {"@id": TASK_CLASS},
                 "rdfs:range": {"@id": "Source"},
@@ -113,17 +114,6 @@ def build_ontology() -> dict:
                 "rdfs:comment": "The service endpoint URL passed to `portolan extract <provider>`.",
                 "rdfs:domain": {"@id": "Source"},
                 "rdfs:range": {"@id": "xsd:anyURI"},
-            },
-            {
-                "@id": "name",
-                "@type": "owl:DatatypeProperty",
-                "rdfs:comment": (
-                    "Optional slug for this source's extraction subdirectory, so "
-                    "multiple sources don't collide. Defaults to a sanitized form "
-                    "of the URL."
-                ),
-                "rdfs:domain": {"@id": "Source"},
-                "rdfs:range": {"@id": "xsd:string"},
             },
             {
                 "@id": "options",
@@ -176,22 +166,12 @@ def get_task_instance() -> dict:
     return instance
 
 
-def slugify(value: str) -> str:
-    slug = re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
-    return slug[:60] or "source"
+def run_source(index: int, source: dict, output_dir: Path) -> bool:
+    """Run one `portolan extract <provider>` call into the shared output directory.
 
-
-def run_source(index: int, source: dict, output_root: Path) -> bool:
-    """Run one `portolan extract <provider>` call and emit its output directory.
-
-    The whole output directory is emitted as a single trailing-slash file:///
-    node, so SAL copies it verbatim instead of content-addressing each file
-    individually. That preserves the relative hrefs between a STAC catalog,
-    its collections, items, and assets, which a flat, per-file digest copy
-    would break. Unless --raw was passed, the directory is also asserted to
-    conform to the STAC spec. The directory is only emitted once the
-    subprocess exits, so it is guaranteed fully written first, per the SAL
-    file:/// contract.
+    Every source in a task instance targets the same output_dir, so portolan
+    accumulates each one as its own collection under one shared STAC catalog
+    (see portolan-cli issue #767) instead of a separate catalog per source.
     """
     provider = source.get("provider")
     url = source.get("url")
@@ -210,10 +190,7 @@ def run_source(index: int, source: dict, output_root: Path) -> bool:
         emit_error("InvalidSource", f"sources[{index}]: 'options' must be an array of strings.")
         return False
 
-    name = source.get("name") or slugify(url)
-    output_dir = output_root / f"{index:02d}-{provider}-{slugify(name)}"
     output_dir.mkdir(parents=True, exist_ok=True)
-
     command = ["portolan", "extract", provider, url, str(output_dir), "--auto", *options]
 
     try:
@@ -230,14 +207,6 @@ def run_source(index: int, source: dict, output_root: Path) -> bool:
         )
         return False
 
-    if any(output_dir.iterdir()):
-        node: dict = {"@id": f"file://{output_dir.resolve()}/"}
-        if "--raw" not in options:
-            # portolan writes a full STAC catalog by default; --raw skips it
-            # in favor of bare extraction files.
-            node["dcterms:conformsTo"] = {"@id": STAC_SPEC}
-        emit(node)
-
     return True
 
 
@@ -250,16 +219,25 @@ def run_cmd(output_root: Path | None = None) -> int:
         fail("InvalidTaskInstance", "'sources' must be a non-empty array.")
 
     if output_root is None:
-        # Not cleaned up afterward: SAL copies each source's output directory
-        # out of the container after reading the file:// node naming it,
-        # which can happen after this process has already exited. Deleting
-        # it here raced that copy and left SAL with nothing to read (the
-        # directory was gone by the time `docker cp` ran). The container
-        # itself is discarded once SAL is done with it, so there is nothing
-        # left to clean up on our end.
+        # Not cleaned up afterward: SAL copies the output directory out of
+        # the container after reading the file:// node naming it, which can
+        # happen after this process has already exited. Deleting it here
+        # raced that copy and left SAL with nothing to read (the directory
+        # was gone by the time `docker cp` ran). The container itself is
+        # discarded once SAL is done with it, so there is nothing left to
+        # clean up on our end.
         output_root = DEFAULT_OUTPUT_ROOT
 
     ok = all([run_source(index, source, output_root) for index, source in enumerate(sources)])
+
+    # One node for the whole shared catalog, not one per source: the whole
+    # point of extracting every source into output_root is that portolan
+    # accumulates them into a single STAC catalog there.
+    if output_root.is_dir() and any(output_root.iterdir()):
+        node: dict = {"@id": f"file://{output_root.resolve()}/"}
+        if (output_root / "catalog.json").exists():
+            node["dcterms:conformsTo"] = {"@id": STAC_SPEC}
+        emit(node)
 
     return 0 if ok else 1
 
