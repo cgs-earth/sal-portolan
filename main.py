@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import NoReturn
 
 SALMODULE_NS = "https://w3id.org/sal/cgs-earth/sal-module-spec/salmodule#"
+MODULE_NS = "salmodule://github.com/cgs-earth/sal-portolan/"
 TASK_CLASS = "Extract"
 PROVIDERS = ("arcgis", "wfs", "carto")
 ONTOLOGY_COMMANDS = ("ontology", "vocab", "vocabulary")
@@ -25,12 +26,18 @@ STAC_SPEC = "https://stacspec.org/"
 def build_ontology() -> dict:
     return {
         "@context": {
+            "@vocab": MODULE_NS,
             "salmodule": SALMODULE_NS,
             "owl": "http://www.w3.org/2002/07/owl#",
             "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
             "sh": "http://www.w3.org/ns/shacl#",
             "xsd": "http://www.w3.org/2001/XMLSchema#",
             "dcterms": "http://purl.org/dc/terms/",
+            # order is significant for CLI arguments, and sources run in the
+            # order listed, so both round-trip through RDF as rdf:List rather
+            # than an unordered set of triples.
+            "sources": {"@id": "sources", "@container": "@list"},
+            "options": {"@id": "options", "@container": "@list"},
         },
         "@graph": [
             {

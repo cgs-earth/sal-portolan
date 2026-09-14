@@ -19,6 +19,9 @@ def test_build_ontology_declares_the_extract_task():
     ids = [node["@id"] for node in ontology["@graph"]]
 
     assert main.TASK_CLASS in ids
+    assert ontology["@context"]["@vocab"] == "salmodule://github.com/cgs-earth/sal-portolan/"
+    assert ontology["@context"]["sources"]["@container"] == "@list"
+    assert ontology["@context"]["options"]["@container"] == "@list"
 
 
 def test_build_ontology_is_valid_jsonld():
