@@ -216,8 +216,9 @@ def test_run_cmd_leaves_the_shared_directory_in_place_after_returning(
     assert (tmp_path / "catalog.json").exists()
 
 
-def test_run_cmd_defaults_to_a_fixed_output_root(monkeypatch, capsys):
-    monkeypatch.setattr(main, "DEFAULT_OUTPUT_ROOT", monkeypatch_dir := main.Path("/tmp/portolan-default-root-test"))
+def test_run_cmd_uses_default_output_root_when_none_is_given(tmp_path, monkeypatch, capsys):
+    default_root = tmp_path / "default-root"
+    monkeypatch.setattr(main, "DEFAULT_OUTPUT_ROOT", default_root)
 
     def fake_run(command, capture_output, text):
         output_dir = Path(command[4])
@@ -236,15 +237,11 @@ def test_run_cmd_defaults_to_a_fixed_output_root(monkeypatch, capsys):
         ),
     )
 
-    try:
-        exit_code = main.run_cmd()
-        assert exit_code == 0
-        node = json.loads(capsys.readouterr().out)
-        assert node["@id"] == f"file://{monkeypatch_dir.resolve()}/"
-    finally:
-        import shutil
+    exit_code = main.run_cmd()
 
-        shutil.rmtree(monkeypatch_dir, ignore_errors=True)
+    assert exit_code == 0
+    node = json.loads(capsys.readouterr().out)
+    assert node["@id"] == f"file://{default_root.resolve()}/"
 
 
 def test_run_cmd_emits_no_conforms_to_when_raw_skips_the_catalog(tmp_path, monkeypatch, capsys):
@@ -355,11 +352,12 @@ def test_run_cmd_attempts_every_source_even_after_a_failure(tmp_path, monkeypatc
 
     assert exit_code == 1
     assert len(calls) == 2
+    assert {c[4] for c in calls} == {str(tmp_path)}  # both attempts share one output_dir
 
     lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
     file_nodes = [n for n in lines if "@id" in n]
     errors = [n for n in lines if n.get("@type") == "salmodule:Error"]
-    assert len(file_nodes) == 1
+    assert len(file_nodes) == 1  # one node for the shared dir, regardless of source count
     assert len(errors) == 1
 
 

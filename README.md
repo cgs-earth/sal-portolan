@@ -2,10 +2,12 @@
 
 A [SAL Module](https://cgs-earth.github.io/sal/) wrapping the
 [`portolan extract`](https://github.com/portolan-sdi/portolan-cli) sub-command.
-It runs `portolan extract arcgis|wfs|carto` against one or more remote
-sources and emits each source's output directory as a single trailing-slash
-`file:///` node, so a SAL project copies the resulting Portolan catalog
-(GeoParquet/COG + STAC metadata) out whole, hrefs and all.
+It runs `portolan extract arcgis|wfs|carto` once per configured source, all
+into the same output directory, so portolan accumulates every source as a
+collection in one shared STAC catalog. That directory is emitted as a
+single trailing-slash `file:///` node, so a SAL project copies the whole
+Portolan catalog (GeoParquet/COG + STAC metadata) out at once, hrefs and
+all.
 
 ## The `Extract` task
 
@@ -17,25 +19,30 @@ configured with a `sources` array. Each entry describes one
 | ---------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `provider` | yes      | `arcgis`, `wfs`, or `carto` — selects the `portolan extract` sub-command.                                                        |
 | `url`      | yes      | The service endpoint URL.                                                                                                        |
-| `name`     | no       | Slug for this source's output subdirectory (defaults to a sanitized form of the URL).                                            |
 | `options`  | no       | Array of raw extra CLI args passed through verbatim, e.g. `["--layers", "Census*"]`. See `portolan extract <provider> --help`.   |
 
-The output directory itself isn't configurable — each source extracts into
-`/portolan/<index>-<provider>-<name>/` inside the container (a fixed path,
-not a randomly-named temp directory, since SAL mirrors the container path
-under `.sal/data/blobs/`, e.g. `.sal/data/blobs/portolan/00-arcgis-demo/`),
-and the module reports that whole directory as one `file:///.../` node
-(trailing slash) once the extraction finishes. SAL copies a trailing-slash
-path verbatim, preserving the relative hrefs between a STAC catalog, its
-collections, items, and assets, rather than content-addressing each file
-individually and scattering them across a flat blob store. `--auto` is
-always passed so the extraction never blocks on an interactive confirmation
-prompt.
+The output directory itself isn't configurable — every source in a task
+instance extracts into the same fixed `/portolan/` inside the container
+(not a randomly-named temp directory, since SAL mirrors the container path
+under `.sal/data/blobs/`, so a fixed path here is what keeps the blob path
+predictable: `.sal/data/blobs/portolan/`). Pointing every source at the same
+directory is deliberate, not incidental — portolan's own auto-init logic
+adds each source as another collection in the catalog already at that path
+instead of creating a new one (see
+[portolan-cli#767](https://github.com/portolan-sdi/portolan-cli/issues/767)),
+so a task with three sources produces one catalog with three collections,
+not three catalogs. `--auto` is always passed so the extraction never blocks
+on an interactive confirmation prompt.
 
-Unless a source's `options` includes `--raw` (which skips STAC catalog
-creation), the directory node also carries
-`dcterms:conformsTo <https://stacspec.org/>`, so the RDF graph records that
-its contents are a STAC catalog rather than a bag of unstructured files.
+Once every source has run, the module reports that one shared directory as
+a single `file:///.../` node (trailing slash). SAL copies a trailing-slash
+path verbatim, preserving the relative hrefs between the catalog, its
+collections, items, and assets, rather than content-addressing each file
+individually and scattering them across a flat blob store. If the resulting
+directory contains a `catalog.json` (i.e. no source's `options` disabled it
+with `--raw`), the node also carries `dcterms:conformsTo
+<https://stacspec.org/>`, so the RDF graph records that its contents are a
+STAC catalog rather than a bag of unstructured files.
 
 ## Usage
 
@@ -78,14 +85,12 @@ instance of `portolan:Extract`:
     portolan:sources (
         [
             portolan:provider "arcgis" ;
-            portolan:url "https://services.arcgis.com/C34zQ7veRS0V1t04/ArcGIS/rest/services/Irrigation_District_2024/FeatureServer/0"^^xsd:anyURI ;
-            portolan:name "irrigation-districts" ;
+            portolan:url "https://services.arcgis.com/C34zQ7veRS0V1t04/ArcGIS/rest/services/Irrigation_District_2024/FeatureServer/0" ;
             portolan:options ( "--output-crs" "EPSG:4326" )
         ]
         [
             portolan:provider "arcgis" ;
-            portolan:url "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer"^^xsd:anyURI ;
-            portolan:name "grand-canyon-elevation" ;
+            portolan:url "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer" ;
             portolan:options ( "--bbox" "-112.2,36.0,-112.0,36.2" )
         ]
     ) .
@@ -96,7 +101,8 @@ second is USGS's [3DEP elevation `ImageServer`](https://elevation.nationalmap.go
 a raster source — `portolan extract arcgis` routes an `ImageServer` URL to
 its COG extraction path instead of GeoParquet. `--bbox` keeps the example to
 a small area around the Grand Canyon rather than the whole CONUS-wide
-elevation dataset.
+elevation dataset. Both land as collections in the one catalog under
+`/portolan/`, not two separate catalogs.
 
 `portolan:sources` and `portolan:options` are declared as `@container: @list`
 in this module's ontology (see `salmodule ontology`), which is why they're

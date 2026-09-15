@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-SALMODULE_NS = "https://w3id.org/sal/cgs-earth/sal-module-spec/salmodule#"
+SALMODULE_NS = "https://w3id.org/sal/cgs-earth/sal/ontology/salmodule#"
 MODULE_NS = "salmodule://github.com/cgs-earth/sal-portolan/"
 TASK_CLASS = "Extract"
 PROVIDERS = ("arcgis", "wfs", "carto")
@@ -68,7 +68,7 @@ def build_ontology() -> dict:
                     "structure."
                 ),
                 "rdfs:subClassOf": {"@id": "salmodule:Task"},
-                "salmodule:self": {
+                "salmodule:taskShape": {
                     "@type": "sh:NodeShape",
                     "sh:property": [
                         {
@@ -137,7 +137,7 @@ def emit(node: dict) -> None:
 
 
 def emit_error(label: str, message: str) -> None:
-    """Emit a salmodule:Error node conforming to salmodule:Task's output shape."""
+    """Emit a salmodule:Error node conforming to salmodule:Task's salmodule:stdoutShape."""
     emit({"@type": "salmodule:Error", "rdfs:label": label, "rdfs:comment": message})
 
 
